@@ -79,6 +79,15 @@ class MainWindow(QMainWindow):
         dialog = Pictures(self)
         dialog.show()
 
+    # функция для вызова ошибки в статусбаре
+    # принимает в себя текст ошибки
+    def error_message(self, message):
+        self.statusBar().showMessage(message)
+        self.save_but.hide()
+        self.show_pics.hide()
+        self.result_UI.setText('')
+        self.statusBar().show()
+
     # функция поиска
     def search(self):
         global pic_count
@@ -97,20 +106,9 @@ class MainWindow(QMainWindow):
             cur = con.cursor()
             # обработка неверного ввода
             error = False
-            if site == '' or self.word_line.text() == '':
-                self.statusBar().showMessage('Введите адрес и ключевое слово')
-                self.save_but.hide()
-                self.show_pics.hide()
-                self.result_UI.setText('')
-                self.statusBar().show()
-                error = True
             try:
                 if requests.get(site).status_code != 200:
-                    self.statusBar().showMessage('Ошибка в адресе сайта')
-                    self.save_but.hide()
-                    self.show_pics.hide()
-                    self.result_UI.setText('')
-                    self.statusBar().show()
+                    self.error_message('Ошибка в адресе сайта')
                     check = history_check(site, self.word_line.text(), search_type)
                     if len(check) == 0:
                         cur.execute("""INSERT INTO search_history (site, request, result, search, success)
@@ -119,17 +117,16 @@ class MainWindow(QMainWindow):
                         con.commit()
                     error = True
             except requests.exceptions.MissingSchema or requests.exceptions.InvalidURL:
-                self.statusBar().showMessage('Ошибка в адресе сайта')
-                self.save_but.hide()
-                self.show_pics.hide()
-                self.result_UI.setText('')
-                self.statusBar().show()
+                self.error_message('Ошибка в адресе сайта')
                 check = history_check(site, self.word_line.text(), search_type)
                 if len(check) == 0:
                     cur.execute("""INSERT INTO search_history (site, request, result, search, success)
                                                                 VALUES(?, ?, ?, ?, ?)""",
                                 (site, self.word_line.text(), 'неверный адрес', search_type, '0'))
                     con.commit()
+                error = True
+            if site == '' or self.word_line.text() == '':
+                self.error_message('Введите адрес и ключевое слово')
                 error = True
             # получили верный ввод
             if error is False:
