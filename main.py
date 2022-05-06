@@ -88,59 +88,107 @@ class MainWindow(QMainWindow):
         self.result_UI.setText('')
         self.statusBar().show()
 
+    def pics(self):
+        # работа с изображениями
+        global pics
+        global pic_count
+        con = sqlite3.connect('ParsingTool.sqlite')
+        cur = con.cursor()
+        check = cur.execute("""SELECT pics FROM search_history WHERE site = ?""",
+                            (self.site,)).fetchall()
+        # если изображения уже скачаны
+        if self.check_pics.isChecked() is True:
+            try:
+                if check[0][0] is not None:
+                    pics = str(check[0])[2:-3].split(' ')
+                    pic_count = len(pics)
+            except IndexError:
+                pass
+            # если не скачаны
+            else:
+                url = self.site
+                page = requests.get(url)
+                tree = html.fromstring(page.content)
+                zxc = []
+                # в список 'zxc' получаем ссылки на все изображения формата jpg
+                for x in tree.cssselect('img'):
+                    if 'jpg' in x.attrib['src'] or 'JPG' in x.attrib['src']:
+                        zxc.append(x.attrib['src'])
+                # преобразуем ссылки в нужный вид, сохраняем пути к изображениям в список pics
+                for pic_link in zxc:
+                    pic_link = 'https:' + pic_link
+                    try:
+                        with open('pics/' + pic_link.split('/')[-1], 'wb') as f:
+                            f.write(requests.get(pic_link).content)
+                        pics.append('pics/' + pic_link.split('/')[-1])
+                        pic_count += 1
+                    except OSError:
+                        pass
+
+                # добавляем найденные изображения в историю поиска
+                to_add = ''
+                for i in range(pic_count):
+                    to_add += pics[i] + ' '
+                to_add = to_add[:-1]
+                cur.execute("""UPDATE search_history SET pics = ? WHERE site = ? AND request = ?
+                                                        AND search = ?""",
+                            (to_add, self.site, self.word_line.text(), self.search_type))
+                con.commit()
+                con.close()
+
     # функция поиска
     def search(self):
         global pic_count
         global pics
         if self.sender().text() == 'Поиск по формам слова':
-            search_type = 'forms'
+            self.search_type = 'forms'
         else:
-            search_type = 'exact'
+            self.search_type = 'exact'
         a = ''
         current = ''
         self.sites = self.url_line.text().split(' ')
         pic_count = 0
         pics = []
-        for site in self.sites:
+        for self.site in self.sites:
             con = sqlite3.connect('ParsingTool.sqlite')
             cur = con.cursor()
             # обработка неверного ввода
             error = False
             try:
-                if requests.get(site).status_code != 200:
+                if requests.get(self.site).status_code != 200:
                     self.error_message('Ошибка в адресе сайта')
-                    check = history_check(site, self.word_line.text(), search_type)
+                    check = history_check(self.site, self.word_line.text(), self.search_type)
                     if len(check) == 0:
                         cur.execute("""INSERT INTO search_history (site, request, result, search, success)
                                                                     VALUES(?, ?, ?, ?, ?)""",
-                                    (site, self.word_line.text(), 'неверный адрес', search_type, '0'))
+                                    (self.site, self.word_line.text(), 'неверный адрес', self.search_type, '0'))
                         con.commit()
                     error = True
             except requests.exceptions.MissingSchema or requests.exceptions.InvalidURL:
                 self.error_message('Ошибка в адресе сайта')
-                check = history_check(site, self.word_line.text(), search_type)
+                check = history_check(self.site, self.word_line.text(), self.search_type)
                 if len(check) == 0:
                     cur.execute("""INSERT INTO search_history (site, request, result, search, success)
                                                                 VALUES(?, ?, ?, ?, ?)""",
-                                (site, self.word_line.text(), 'неверный адрес', search_type, '0'))
+                                (self.site, self.word_line.text(), 'неверный адрес', self.search_type, '0'))
                     con.commit()
                 error = True
-            if site == '' or self.word_line.text() == '':
+            if self.site == '' or self.word_line.text() == '':
                 self.error_message('Введите адрес и ключевое слово')
                 error = True
             # получили верный ввод
             if error is False:
                 self.statusBar().hide()
-                check = history_check(site, self.word_line.text(), search_type)
+                check = history_check(self.site, self.word_line.text(), self.search_type)
                 # одинаковый запрос уже есть в БД? тогда возьмем результаты оттуда
                 if len(check) != 0:
                     result = check[0][0]
                 # если нет, то выполним поиск через алгоритм
                 else:
-                    if search_type == 'forms':
-                        result = Main(site, self.word_line.text()).main()
+                    if self.search_type == 'forms':
+                        result = Main(self.site, self.word_line.text()).main()
                     else:
-                        result = Main(site, self.word_line.text()).exact()
+                        result = Main(self.site, self.word_line.text()).exact()
                 # если ничего не нашли
                 if len(result) == 0:
                     self.statusBar().showMessage('Ничего не найдено!')
@@ -148,21 +196,21 @@ class MainWindow(QMainWindow):
                     self.result_UI.setText('')
                     cur.execute("""INSERT INTO search_history (site, request, result, search, success)
                                             VALUES(?, ?, ?, ?, ?)""",
-                                (site, self.word_line.text(), 'ничего не найдено', search_type, '0'))
+                                (self.site, self.word_line.text(), 'ничего не найдено', self.search_type, '0'))
                     con.commit()
                 # если нашли
                 else:
                     # ссылка на сайт (на случай ввода нескольких адресов)
                     a += '---------------------------------- \n ' + \
-                         site + ' \n----------------------------------\n '
+                         self.site + ' \n----------------------------------\n '
                     # записываем весь результат поиска в переменные, добавляем в историю поиска
                     for par in result:
                         a += par
                         current += par
-                    check = history_check(site, self.word_line.text(), search_type)
+                    check = history_check(self.site, self.word_line.text(), self.search_type)
                     if len(check) == 0:
                         cur.execute("""INSERT INTO search_history (site, request, result, search, success)
-                        VALUES(?, ?, ?, ?, ?)""", (site, self.word_line.text(), current, search_type, '1'))
+                        VALUES(?, ?, ?, ?, ?)""", (self.site, self.word_line.text(), current, self.search_type, '1'))
                         con.commit()
                     current = ''
                 # выводим результат в главное окно
@@ -170,50 +218,7 @@ class MainWindow(QMainWindow):
                 self.save_but.show()
                 self.show_pics.show()
 
-            # работа с изображениями
-                con = sqlite3.connect('ParsingTool.sqlite')
-                cur = con.cursor()
-                check = cur.execute("""SELECT pics FROM search_history WHERE site = ?""",
-                                    (site,)).fetchall()
-                # если изображения уже скачаны
-                if self.check_pics.isChecked() is True:
-                    try:
-                        if check[0][0] is not None:
-                            pics = str(check[0])[2:-3].split(' ')
-                            pic_count = len(pics)
-                    except IndexError:
-                        pass
-                    # если не скачаны
-                    else:
-                        url = site
-                        page = requests.get(url)
-                        tree = html.fromstring(page.content)
-                        zxc = []
-                        # в список 'zxc' получаем ссылки на все изображения формата jpg
-                        for x in tree.cssselect('img'):
-                            if 'jpg' in x.attrib['src'] or 'JPG' in x.attrib['src']:
-                                zxc.append(x.attrib['src'])
-                        # преобразуем ссылки в нужный вид, сохраняем пути к изображениям в список pics
-                        for pic_link in zxc:
-                            pic_link = 'https:' + pic_link
-                            try:
-                                with open('pics/' + pic_link.split('/')[-1], 'wb') as f:
-                                    f.write(requests.get(pic_link).content)
-                                pics.append('pics/' + pic_link.split('/')[-1])
-                                pic_count += 1
-                            except OSError:
-                                pass
-
-                        # добавляем найденные изображения в историю поиска
-                        to_add = ''
-                        for i in range(pic_count):
-                            to_add += pics[i] + ' '
-                        to_add = to_add[:-1]
-                        cur.execute("""UPDATE search_history SET pics = ? WHERE site = ? AND request = ?
-                                                                AND search = ?""",
-                                    (to_add, site, self.word_line.text(), search_type))
-                        con.commit()
-                        con.close()
+                self.pics()
 
     def save(self):
         # функция сохранения результата в txt
