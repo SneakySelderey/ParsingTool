@@ -88,6 +88,7 @@ class MainWindow(QMainWindow):
         self.result_UI.setText('')
         self.statusBar().show()
 
+    # функция для сохранения изображений
     def pics(self):
         # работа с изображениями
         global pics
