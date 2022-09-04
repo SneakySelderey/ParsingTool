@@ -1,5 +1,6 @@
 import sys
-import os, shutil
+import os
+# import shutil
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QTableWidgetItem
 from PyQt5.QtGui import QPixmap
@@ -272,15 +273,20 @@ class History(QMainWindow):
 
     def clear(self):
         # очистка истории поиска и удаление изображений
+
         con = sqlite3.connect('ParsingTool.sqlite')
         cur = con.cursor()
-        cur.execute('''PRAGMA foreign_keys = OFF''')
-        con.commit()
-        cur.execute('''DELETE FROM search_history''')
-        con.commit()
-        cur.execute('''PRAGMA foreign_keys = ON''')
-        con.commit()
-        con.close()
+        cur.execute('''DROP TABLE search_history''')
+        cur.execute('''CREATE TABLE search_history (
+                    id      INTEGER UNIQUE
+                                    NOT NULL
+                                    PRIMARY KEY AUTOINCREMENT,
+                    site    STRING  NOT NULL,
+                    request STRING  NOT NULL,
+                    result  STRING,
+                    search  STRING  NOT NULL,
+                    pics    STRING,
+                    success INTEGER REFERENCES result (code));''')
         self.tableWidget.clear()
         folder = 'pics'
         for the_file in os.listdir(folder):
