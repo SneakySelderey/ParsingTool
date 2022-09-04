@@ -368,6 +368,12 @@ class Main:
                         used_par.append(paragraph)
                         result.append(paragraph)
 
+        for elem in range(len(result)):
+            if '\n' in result[elem]:
+                result[elem] = result[elem].replace('\n', '')
+            if '\xa0' in result[elem]:
+                result[elem] = result[elem].replace('\xa0', ' ')
+
         return result
 
     def exact(self):
@@ -392,6 +398,12 @@ class Main:
             if word in paragraph and paragraph not in used_par:
                 result.append(paragraph)
                 used_par.append(paragraph)
+
+        for elem in range(len(result)):
+            if '\n' in result[elem]:
+                result[elem] = result[elem].replace('\n', '')
+            if '\xa0' in result[elem]:
+                result[elem] = result[elem].replace('\xa0', ' ')
 
         # возвращение результата
         return result
