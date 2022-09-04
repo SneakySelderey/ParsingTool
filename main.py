@@ -1,5 +1,6 @@
 import sys
-import os, shutil
+import os
+import shutil
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QTableWidgetItem
 from PyQt5.QtGui import QPixmap
